@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import { ActivityIndicator } from 'react-native';
 import PropTypes from 'prop-types';
 
 import api from '../../services/api';
@@ -15,6 +16,7 @@ import {
   Info,
   Title,
   Author,
+  LoadingContainer,
 } from './styles';
 
 export default class User extends Component {
@@ -30,19 +32,32 @@ export default class User extends Component {
 
   state = {
     stars: [],
+    loading: true,
+    page: 1,
   };
 
-  async componentDidMount() {
+  componentDidMount() {
+    this.loadData();
+  }
+
+  loadData = async () => {
+    const { page, stars } = this.state;
     const { navigation } = this.props;
     const user = navigation.getParam('user');
 
-    const response = await api.get(`/users/${user.login}/starred`);
+    const response = await api.get(`/users/${user.login}/starred`, {
+      params: { page },
+    });
 
-    this.setState({ stars: response.data });
-  }
+    this.setState({
+      stars: [...stars, ...response.data],
+      loading: false,
+      page: page + 1,
+    });
+  };
 
   render() {
-    const { stars } = this.state;
+    const { stars, loading } = this.state;
     const { navigation } = this.props;
 
     const user = navigation.getParam('user');
@@ -55,19 +70,27 @@ export default class User extends Component {
           <Bio>{user.bio}</Bio>
         </Header>
 
-        <Stars
-          data={stars}
-          keyExtractor={star => String(star.id)}
-          renderItem={({ item }) => (
-            <Starred>
-              <OwnerAvatar source={{ uri: item.owner.avatar_url }} />
-              <Info>
-                <Title>{item.name}</Title>
-                <Author>{item.owner.login}</Author>
-              </Info>
-            </Starred>
-          )}
-        />
+        {loading ? (
+          <LoadingContainer>
+            <ActivityIndicator size="large" color="#7159c1" />
+          </LoadingContainer>
+        ) : (
+          <Stars
+            data={stars}
+            keyExtractor={star => String(star.id)}
+            onEndReachedThreshold={0.2}
+            onEndReached={this.loadData}
+            renderItem={({ item }) => (
+              <Starred>
+                <OwnerAvatar source={{ uri: item.owner.avatar_url }} />
+                <Info>
+                  <Title>{item.name}</Title>
+                  <Author>{item.owner.login}</Author>
+                </Info>
+              </Starred>
+            )}
+          />
+        )}
       </Container>
     );
   }
